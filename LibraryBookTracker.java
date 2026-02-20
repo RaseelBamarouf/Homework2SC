@@ -4,25 +4,24 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Collections;
 
 public class LibraryBookTracker {
-
-    public static void main(String[] args) {
-
-        int recordsCount = 0;
-        int errorCount = 0;
-        int searchResults = 0;
-        int booksAdded = 0;
+public static void main(String[] args) {
+int recordsCount = 0;
+int errorCount = 0;
+int searchResults = 0;
+int booksAdded = 0;
 
         try {
 
             if (args.length < 2) {
-                throw new InsufficientArgumentsException("EROR : YOU MUST ENTER THE FILE NAME AND THE OPERATION");
+                throw new InsufficientArgumentsException("ERROR: YOU MUST ENTER THE FILE NAME AND THE OPERATION");
             }
 
             String fileName = args[0];
             if (!fileName.endsWith(".txt")) {
-                throw new InvalidFileNameException("EROR : THE FILE MUST END WITH .txt");
+                throw new InvalidFileNameException("ERROR: THE FILE MUST END WITH .txt");
             }
 
             File catalog = new File(args[0]);
@@ -41,39 +40,33 @@ public class LibraryBookTracker {
                     try {
                         String[] parts = line.split(":");
 
-                        String title = parts[0].trim();
-                        if (title.isEmpty()) {
-                            throw new MalformedBookEntryException("TITLE IS EMPTY");
+                        if (parts.length != 4) {
+                            throw new MalformedBookEntryException("MISSING FIELDS");
                         }
+
+                        String title = parts[0].trim();
+                        if (title.isEmpty()) throw new MalformedBookEntryException("TITLE IS EMPTY");
 
                         String author = parts[1].trim();
-                        if (author.isEmpty()) {
-                            throw new MalformedBookEntryException("AUTHOR IS EMPTY");
-                        }
+                        if (author.isEmpty()) throw new MalformedBookEntryException("AUTHOR IS EMPTY");
 
                         String isbn = parts[2].trim();
-                        if (isbn.length() != 13) {
-                            throw new InvalidISBNException("ISBN MUST BE 13 DIGITS");
-                        }
+                        if (isbn.length() != 13) throw new InvalidISBNException("ISBN MUST BE 13 DIGITS");
 
                         for (int i = 0; i < isbn.length(); i++) {
                             if (!Character.isDigit(isbn.charAt(i))) {
-                                throw new InvalidISBNException("ISBN must contain only digits");
+                                throw new InvalidISBNException("ISBN MUST CONTAIN ONLY DIGITS");
                             }
                         }
 
-                        String copiesStr = parts[3].trim();
                         int copies;
-
                         try {
-                            copies = Integer.parseInt(copiesStr);
+                            copies = Integer.parseInt(parts[3].trim());
                         } catch (NumberFormatException e) {
-                            throw new MalformedBookEntryException("Copies is not a number");
+                            throw new MalformedBookEntryException("COPIES IS NOT A NUMBER");
                         }
 
-                        if (copies <= 0) {
-                            throw new MalformedBookEntryException("Copies must be positive");
-                        }
+                        if (copies <= 0) throw new MalformedBookEntryException("COPIES MUST BE POSITIVE");
 
                         inventory.add(new Book(title, author, isbn, copies));
                         recordsCount++;
@@ -87,7 +80,6 @@ public class LibraryBookTracker {
                 }
             }
 
-            //  DETERMINE OPERATION 
             String op = args[1];
 
             boolean isIsbn = op.length() == 13 && allDigits(op);
@@ -100,49 +92,43 @@ public class LibraryBookTracker {
                     String[] newParts = op.split(":");
 
                     String newTitle = newParts[0].trim();
-                    if (newTitle.isEmpty()) {
-                        throw new MalformedBookEntryException("TITLE IS EMPTY");
-                    }
+                    if (newTitle.isEmpty()) throw new MalformedBookEntryException("TITLE IS EMPTY");
 
                     String newAuthor = newParts[1].trim();
-                    if (newAuthor.isEmpty()) {
-                        throw new MalformedBookEntryException("AUTHOR IS EMPTY");
-                    }
+                    if (newAuthor.isEmpty()) throw new MalformedBookEntryException("AUTHOR IS EMPTY");
 
                     String newIsbn = newParts[2].trim();
-                    if (newIsbn.length() != 13) {
-                        throw new InvalidISBNException("ISBN MUST BE 13 DIGITS");
-                    }
+                    if (newIsbn.length() != 13) throw new InvalidISBNException("ISBN MUST BE 13 DIGITS");
 
                     for (int i = 0; i < newIsbn.length(); i++) {
                         if (!Character.isDigit(newIsbn.charAt(i))) {
-                            throw new InvalidISBNException("ISBN must contain only digits");
+                            throw new InvalidISBNException("ISBN MUST CONTAIN ONLY DIGITS");
                         }
                     }
 
-                    String newCopiesStr = newParts[3].trim();
                     int newCopies;
-
                     try {
-                        newCopies = Integer.parseInt(newCopiesStr);
+                        newCopies = Integer.parseInt(newParts[3].trim());
                     } catch (NumberFormatException e) {
-                        throw new MalformedBookEntryException("Copies is not a number");
+                        throw new MalformedBookEntryException("COPIES IS NOT A NUMBER");
                     }
 
-                    if (newCopies <= 0) {
-                        throw new MalformedBookEntryException("Copies must be positive");
-                    }
+                    if (newCopies <= 0) throw new MalformedBookEntryException("COPIES MUST BE POSITIVE");
 
                     Book newBook = new Book(newTitle, newAuthor, newIsbn, newCopies);
                     inventory.add(newBook);
                     booksAdded++;
 
-                    FileWriter fw = new FileWriter(catalog, true);
-                    fw.write(newBook.fileFormat() + "\n");
+                    Collections.sort(inventory, (a, b) -> a.getTitle().compareToIgnoreCase(b.getTitle()));
+
+                    FileWriter fw = new FileWriter(catalog, false);
+                    for (Book b : inventory) {
+                        fw.write(b.fileFormat() + "\n");
+                    }
                     fw.close();
 
-                    System.out.println("Book added successfully");
-                    System.out.println(newBook);
+                    newBook.printHeader();
+                    newBook.printFormet();
 
                 } catch (BookCatalogException e) {
                     errorCount++;
@@ -151,32 +137,43 @@ public class LibraryBookTracker {
                 }
             }
 
-            // ISBN SEARCH 
             else if (isIsbn) {
 
-                boolean found = false;
+                int matches = 0;
 
                 for (Book b : inventory) {
                     if (b.getIsbn().equals(op)) {
-                        System.out.println(b);
-                        searchResults++;
-                        found = true;
+                        matches++;
                     }
                 }
 
-                if (!found) {
+                if (matches > 1) {
+                    throw new DuplicateISBNException("DUPLICATE ISBN FOUND");
+                }
+
+                if (matches == 0) {
                     System.out.println("Book not found");
+                } else {
+
+                    inventory.get(0).printHeader();
+
+                    for (Book b : inventory) {
+                        if (b.getIsbn().equals(op)) {
+                            b.printFormet();
+                            searchResults++;
+                        }
+                    }
                 }
             }
 
-            // TITLE SEARCH
             else {
 
                 boolean found = false;
 
                 for (Book b : inventory) {
                     if (b.getTitle().toLowerCase().contains(op.toLowerCase())) {
-                        System.out.println(b);
+                        if (!found) b.printHeader();
+                        b.printFormet();
                         searchResults++;
                         found = true;
                     }
@@ -187,10 +184,6 @@ public class LibraryBookTracker {
                 }
             }
 
-        } catch (InsufficientArgumentsException e) {
-            System.out.println(e.getMessage());
-        } catch (InvalidFileNameException e) {
-            System.out.println(e.getMessage());
         } catch (Exception e) {
             System.out.println(e.getMessage());
         }
